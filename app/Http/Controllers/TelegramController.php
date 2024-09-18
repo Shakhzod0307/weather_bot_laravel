@@ -10,6 +10,8 @@ use Intervention\Image\Laravel\Facades\Image;
 use Telegram\Bot\FileUpload\InputFile;
 use Telegram\Bot\Keyboard\Keyboard;
 use Telegram\Bot\Laravel\Facades\Telegram;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 
 class TelegramController extends Controller
 {
@@ -55,15 +57,26 @@ class TelegramController extends Controller
                         $city = $matches[1] ?? 'Tashkent';
                         $weatherData = $this->getWeather($city);
                         if ($weatherData) {
-                            Telegram::sendPhoto([
+                            $imagePath = public_path('images/img.png');
+                            $manager = new ImageManager(new Driver());
+                            $image = $manager->animate(function ($animation) {
+                                $animation->add('images/img.png', .25);
+                                $animation->add('images/foo.png', .25);
+                                $animation->add('images/foo733.png', .25);
+                            })->setLoops(4);
+                            Telegram::sendMessage([
                                 'chat_id' => $chatId,
-                                'photo' => InputFile::create($weatherData), // Send the generated weather image
-                                'caption' => "Here is the weather data for {$city}!",
+                                'text' => "{$city}da harorat {$weatherData[1]}°C ",
+                            ]);
+                            Telegram::sendAnimation([
+                                'chat_id' => $chatId,
+                                'photo' => InputFile::create($image, 'image2.png'),
+                                'caption' => $weatherData[2],
                             ]);
                         } else {
                             Telegram::sendMessage([
                                 'chat_id' => $chatId,
-                                'text' => "Error fetching weather data.",
+                                'text' => "Ma'lumotlarni yuklashda xatolik bo'ldi1",
                             ]);
                         }
                     } else {
@@ -92,7 +105,14 @@ class TelegramController extends Controller
             $response = $client->request('GET', $url);
             $data = json_decode($response->getBody(), true);
             if ($data['cod'] === 200) {
-                return $this->generateWeatherImage($data); // Return the generated image path
+//                return $this->generateWeatherImage($data); // Return the generated image path
+                return [
+                    $city = $data['name'],
+                    $temp = $data['main']['temp'],
+                    $description = $data['weather'][0]['description'],
+                    $humidity = $data['main']['humidity'],
+                    $windSpeed = $data['wind']['speed'],
+                ];
             } else {
                 return null;
             }
